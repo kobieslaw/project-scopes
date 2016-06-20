@@ -12,7 +12,7 @@ public class Controller {
     private KeyCode right;
 
     // Player new direction.
-    public double direction = 0.0;
+    private double direction = 0.0;
 
     // Checks if left or right is pressed.
     private boolean leftPressed = false;
@@ -34,6 +34,7 @@ public class Controller {
      *
      * @param keyCode Key pressed/released by Player.
      * @param keyPressed Determines whether key was pressed or released.
+     * @return New Player direction.
      */
     public double getNewDirection(KeyCode keyCode, boolean keyPressed) {
         if (keyCode == left) {

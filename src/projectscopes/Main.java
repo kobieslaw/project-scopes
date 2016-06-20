@@ -1,25 +1,24 @@
 package projectscopes;
 
+import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
-import javafx.animation.SequentialTransition;
+import javafx.animation.ParallelTransition;
 import javafx.animation.Timeline;
 import javafx.application.Application;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
+import javafx.scene.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
+import javafx.scene.shape.Line;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 
 /**
  *
  * @author Tomasz Najbar
  */
 public class Main extends Application {
-    // Maximum number of Players.
-    private final int MAX_PLAYERS = 8;
+    // Maximum number of Players. To be used in the future.
+    //private final int MAX_PLAYERS = 8;
 
     // Configurator.
     private static Configurator configurator;
@@ -27,63 +26,88 @@ public class Main extends Application {
     // Current number of Players.
     private static int noOfPlayers = 0;
 
-    // Current player.
-    private int currentPlayer = 0;
-
     // Players.
     private static Player[] players;
 
     // Controllers.
     private static Controller[] controllers;
 
+    // Animation.
+    private ParallelTransition parallelTransition = new ParallelTransition();
+    private static Timeline[] timelines;
+
     // Window.
     private Pane root = new Pane();
 
-    // Animation.
-    private SequentialTransition sequentialTransition = new SequentialTransition();
-    private Timeline[] timelines;
+    // Collision detector.
+    private static CollisionDetector collisionDetector;
 
-    // Create and update content.
+    // Says if Player is still in game.
+    private boolean[] running;
+
+    // Creates and updates content.
     private Parent createContent() {
-        // Calculate each Player move.
-        currentPlayer = 0;
-        for (Player player : players) {
-            final KeyFrame keyFrame = new KeyFrame(Duration.seconds(player.getSpeed()), event -> {
-                player.move();
-
-                // Draw circle.
-                final Circle circle = new Circle(player.getX(), player.getY(), player.getSize(), player.getColor());
-                root.getChildren().add(circle);
-            });
-
-            timelines[currentPlayer].getKeyFrames().add(keyFrame);
-
-            ++currentPlayer;
+        running = new boolean[noOfPlayers];
+        for (int i = 0; i < noOfPlayers; ++i) {
+            running[i] = true;
         }
 
-        sequentialTransition.getChildren().addAll(timelines);
-        sequentialTransition.setCycleCount(Timeline.INDEFINITE);
+        // Calculate each Player move.
+        for (Player player : players) {
+            final KeyFrame keyFrame = new KeyFrame(configurator.getFps60(), event -> {
+                if (timelines[player.getId()] != null) {
+                    running[player.getId()] = true;
+                    // Calculate new Player position.
+                    player.move();
+
+                    double vectorX = Math.sin(player.getDirection());
+                    double vectorY = Math.cos(player.getDirection());
+                    final Line line = new Line(player.getX() + vectorY * player.getSize(), player.getY() - vectorX * player.getSize(),
+                            player.getX() - vectorY * player.getSize(), player.getY() + vectorX * player.getSize());
+                    line.setStroke(player.getColor());
+
+                    if (timelines[player.getId()].getStatus() == Animation.Status.RUNNING) {
+                        if (collisionDetector.collision(player, root)) {
+                            timelines[player.getId()] = null;
+                        }
+                    }
+
+                    root.getChildren().add(line);
+                }
+                else {
+                    running[player.getId()] = false;
+                }
+
+                // Check how many Players are still playing. If one, stop animation.
+                int playersInGame = noOfPlayers;
+                for (int i = 0; i < noOfPlayers; ++i) {
+                    if (!running[i]) {
+                        --playersInGame;
+                    }
+                    if (playersInGame < 2) {
+                        parallelTransition.stop();
+                    }
+                }
+            });
+
+            // Add each Player animation frame.
+            timelines[player.getId()].getKeyFrames().add(keyFrame);
+        }
+
+        // Add all timelines to the animation and play it infinitely.
+        parallelTransition.getChildren().addAll(timelines);
+        parallelTransition.setCycleCount(Timeline.INDEFINITE);
 
         return root;
     }
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        // Scene size.
-        int sceneWidth = configurator.getSceneWidth();
-        int sceneHeight = configurator.getSceneHeight();
-
-        // Initialize timeline for each Player.
-        timelines = new Timeline[noOfPlayers];
-        for (int i = 0; i < timelines.length; ++i) {
-            timelines[i] = new Timeline();
-        }
-
-        // Set window size.
-        root.setPrefSize(sceneWidth, sceneHeight);
         // Create scene.
         final Scene scene = new Scene(createContent());
+        root.setPrefSize(configurator.getSceneWidth(), configurator.getSceneHeight());
 
+        // React on key press/release.
         scene.setOnKeyPressed(event -> {
             for (int i = 0; i < noOfPlayers; ++i) {
                 players[i].setDirection(controllers[i].getNewDirection(event.getCode(), true));
@@ -102,30 +126,54 @@ public class Main extends Application {
         primaryStage.show();
 
         // Run animation.
-        sequentialTransition.play();
+        parallelTransition.play();
     }
 
     public static void main(String[] args) {
+        // Set number of players.
         noOfPlayers = 2;
-        configurator = new Configurator(noOfPlayers);
 
-        // Initialize Players and Controllers.
+        // Initialize Configurator.
+        configurator = new Configurator();
+
+        // Initalize CollisionDetector.
+        collisionDetector = new CollisionDetector(configurator.getPlayerSize());
+
+        // Initialize Players, Timelines and Controllers.
         Color[] colors = new Color[noOfPlayers];
         colors[0] = Color.BLUE;
         colors[1] = Color.RED;
+        /*colors[2] = Color.BLACK;
+        colors[3] = Color.GREEN;
+        colors[4] = Color.PINK;
+        colors[5] = Color.GRAY;
+        colors[6] = Color.ORANGE;
+        colors[7] = Color.PURPLE;*/
 
         players = new Player[noOfPlayers];
         int playerSize = configurator.getPlayerSize();
         for (int i = 0; i < noOfPlayers; ++i) {
             double x = playerSize + (Math.random() * (configurator.getSceneWidth() - 2 * playerSize));
             double y = playerSize + (Math.random() * (configurator.getSceneHeight() - 2 * playerSize));
-            players[i] = new Player(x, y, Math.random(), playerSize, configurator.getPlayerSpeed(), colors[i]);
+            players[i] = new Player(i, x, y, Math.random(), playerSize, configurator.getPlayerSpeed(), colors[i]);
+        }
+
+        timelines = new Timeline[noOfPlayers];
+        for (int i = 0; i < timelines.length; ++i) {
+            timelines[i] = new Timeline();
         }
 
         controllers = new Controller[noOfPlayers];
         controllers[0] = new Controller(KeyCode.LEFT, KeyCode.DOWN);
         controllers[1] = new Controller(KeyCode.A, KeyCode.S);
+        /*controllers[2] = new Controller(KeyCode.O, KeyCode.P);
+        controllers[3] = new Controller(KeyCode.R, KeyCode.T);
+        controllers[4] = new Controller(KeyCode.Y, KeyCode.U);
+        controllers[5] = new Controller(KeyCode.C, KeyCode.V);
+        controllers[6] = new Controller(KeyCode.N, KeyCode.M);
+        controllers[7] = new Controller(KeyCode.K, KeyCode.L);*/
 
+        // Run the game.
         launch(args);
     }
 }

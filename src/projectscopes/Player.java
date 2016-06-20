@@ -7,6 +7,9 @@ import javafx.scene.paint.Color;
  * @author Tomasz Najbar
  */
 public class Player {
+    // Id.
+    private int id = 0;
+
     // Size.
     private int size = 0;
 
@@ -29,13 +32,16 @@ public class Player {
     /**
      * Creates Player instance.
      *
+     * @param id Player identifier.
      * @param x Initial position on X axis.
      * @param y Initial position on Y axis.
      * @param factor Defines direction.
      * @param size Initial size.
      * @param speed Initial speed.
      */
-    public Player(final double x, final double y, final double factor, final int size, final double speed, final Color color) {
+    public Player(final int id, final double x, final double y, final double factor, final int size, final double speed, final Color color) {
+        this.id = id;
+
         this.x = x;
         this.y = y;
 
@@ -49,21 +55,15 @@ public class Player {
         this.color = color;
     }
 
-    public final double getX() {
-        return x;
-    }
+    public final int getId() { return id; }
+
+    public final double getX() {return x; }
 
     public final double getY() {
         return y;
     }
 
-    public final int getSize() {
-        return size;
-    }
-
-    public final double getSpeed() {
-        return speed;
-    }
+    public final int getSize() { return size; }
 
     public final Color getColor() {
         return color;
@@ -72,6 +72,8 @@ public class Player {
     public void setDirection(double direction) {
         this.direction = direction;
     }
+
+    public final double getDirection() { return factor; }
 
     /**
      * Calculates new position.
@@ -83,7 +85,7 @@ public class Player {
             vectorY = Math.cos(factor);
         }
 
-        x += vectorX;
-        y += vectorY;
+        x += vectorX * speed;
+        y += vectorY * speed;
     }
 }

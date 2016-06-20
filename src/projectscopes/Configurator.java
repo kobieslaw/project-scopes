@@ -1,5 +1,7 @@
 package projectscopes;
 
+import javafx.util.Duration;
+
 /**
  *
  * @author Tomasz Najbar
@@ -10,20 +12,13 @@ public class Configurator {
     private int sceneHeight = 600;
 
     // Initial Players size.
-    private int playerSize = 3;
+    private int playerSize = 5;
 
     // Initial Players speed.
-    private double playerSpeed = 0.01;
+    private double playerSpeed = 1;
 
-    /**
-     * Initializes configurator with initial Players speed.
-     *
-     * @param noOfPlayers Number of players.
-     */
-    public Configurator(int noOfPlayers) {
-        // Calculate Players speed.
-        playerSpeed /= noOfPlayers;
-    }
+    // Animation spped.
+    private Duration fps60 = Duration.seconds(1.0 / 60.0);
 
     public int getSceneWidth() {
         return sceneWidth;
@@ -40,4 +35,6 @@ public class Configurator {
     public double getPlayerSpeed() {
         return playerSpeed;
     }
+
+    public Duration getFps60() { return fps60; }
 }
