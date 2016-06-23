@@ -8,53 +8,53 @@ import javafx.scene.input.KeyCode;
  */
 public class Controller {
     // Player turning keys.
-    private KeyCode left;
-    private KeyCode right;
+    private String left;
+    private String right;
 
     // Player new direction.
-    private double direction = 0.0;
+    private int direction = 0;
 
     // Checks if left or right is pressed.
     private boolean leftPressed = false;
     private boolean rightPressed = false;
 
     /**
-     * Initializes controller with Player turning keys.
+     * Initializes controller with Player movement keys.
      *
      * @param left Left turn.
      * @param right Right turn.
      */
-    public Controller(KeyCode left, KeyCode right) {
+    public Controller(final String left, final String right) {
         this.left = left;
         this.right = right;
     }
 
     /**
-     * Gets new player direction.
+     * Gets new player direction (left/right/straight).
      *
      * @param keyCode Key pressed/released by Player.
-     * @param keyPressed Determines whether key was pressed or released.
+     * @param keyPressed Indicates whether a key was pressed or released.
      * @return New Player direction.
      */
-    public double getNewDirection(KeyCode keyCode, boolean keyPressed) {
-        if (keyCode == left) {
+    public int getNewDirection(String keyCode, boolean keyPressed) {
+        if (keyCode.equals(left)) {
             if (keyPressed) {
                 leftPressed = true;
-                direction = +0.025;
+                direction = +1;
             } else {
                 leftPressed = false;
                 if (!rightPressed) {
-                    direction = 0.0;
+                    direction = 0;
                 }
             }
-        } else if (keyCode == right) {
+        } else if (keyCode.equals(right)) {
             if (keyPressed) {
                 rightPressed = true;
-                direction = -0.025;
+                direction = -1;
             } else {
                 rightPressed = false;
                 if (!leftPressed) {
-                    direction = 0.0;
+                    direction = 0;
                 }
             }
         }

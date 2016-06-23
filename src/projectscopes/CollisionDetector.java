@@ -89,6 +89,6 @@ public class CollisionDetector {
             points.add(new int[]{xRight, yRight});
         }
 
-        return boarderCollision((int)pane.getWidth(), (int)pane.getHeight()) || playerCollision(pane.getChildrenUnmodifiable());
+        return boarderCollision((int)pane.getLayoutX(), (int)pane.getLayoutY()) || playerCollision(pane.getChildrenUnmodifiable());
     }
 }

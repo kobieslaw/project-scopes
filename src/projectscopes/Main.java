@@ -1,123 +1,147 @@
 package projectscopes;
 
-import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
-import javafx.animation.ParallelTransition;
 import javafx.animation.Timeline;
 import javafx.application.Application;
-import javafx.scene.*;
-import javafx.scene.input.KeyCode;
+import javafx.scene.CacheHint;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Line;
 import javafx.stage.Stage;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.util.concurrent.TimeUnit;
+
 /**
- *
  * @author Tomasz Najbar
+ *
+ * Runs project-scopes.
  */
 public class Main extends Application {
-    // Maximum number of Players. To be used in the future.
-    //private final int MAX_PLAYERS = 8;
+    // User Interface.
+    private static UI ui = null;
 
-    // Configurator.
-    private static Configurator configurator;
+    // Host IP address.
+    private static String hostIpAddress = null;
 
-    // Current number of Players.
-    private static int noOfPlayers = 0;
+    // Game configuration.
+    private static Configurator configurator = null;
 
-    // Players.
-    private static Player[] players;
+    // Communicator with the server.
+    private Communicator communicator = null;
 
-    // Controllers.
-    private static Controller[] controllers;
+    // Input/Output streams.
+    private DataInputStream dataInputStream = null;
+    private DataOutputStream dataOutputStream = null;
+
+    // Game scene.
+    private final Canvas canvas = new Canvas();
+    private final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
+    private final Pane pane = new Pane(canvas);
+
+    // Client id.
+    private int id = -1;
+
+    // Number of players in the game.
+    private int noOfPlayers = -1;
+
+    // Current player direction (left/right/straight).
+    private int direction = 0;
 
     // Animation.
-    private ParallelTransition parallelTransition = new ParallelTransition();
-    private static Timeline[] timelines;
+    private final Timeline timeline = new Timeline();
 
-    // Window.
-    private Pane root = new Pane();
+    /**
+     * Create content on the scene.
+     */
+    public Parent createContent() throws IOException {
+        // Draw current players position.
+        final KeyFrame keyFrame = new KeyFrame(configurator.getFps60(), event -> {
+            //long startTime = System.nanoTime();
 
-    // Collision detector.
-    private static CollisionDetector collisionDetector;
-
-    // Says if Player is still in game.
-    private boolean[] running;
-
-    // Creates and updates content.
-    private Parent createContent() {
-        running = new boolean[noOfPlayers];
-        for (int i = 0; i < noOfPlayers; ++i) {
-            running[i] = true;
-        }
-
-        // Calculate each Player move.
-        for (Player player : players) {
-            final KeyFrame keyFrame = new KeyFrame(configurator.getFps60(), event -> {
-                if (timelines[player.getId()] != null) {
-                    running[player.getId()] = true;
-                    // Calculate new Player position.
-                    player.move();
-
-                    double vectorX = Math.sin(player.getDirection());
-                    double vectorY = Math.cos(player.getDirection());
-                    final Line line = new Line(player.getX() + vectorY * player.getSize(), player.getY() - vectorX * player.getSize(),
-                            player.getX() - vectorY * player.getSize(), player.getY() + vectorX * player.getSize());
-                    line.setStroke(player.getColor());
-
-                    if (timelines[player.getId()].getStatus() == Animation.Status.RUNNING) {
-                        if (collisionDetector.collision(player, root)) {
-                            timelines[player.getId()] = null;
-                        }
-                    }
-
-                    root.getChildren().add(line);
-                }
-                else {
-                    running[player.getId()] = false;
-                }
-
-                // Check how many Players are still playing. If one, stop animation.
-                int playersInGame = noOfPlayers;
-                for (int i = 0; i < noOfPlayers; ++i) {
-                    if (!running[i]) {
-                        --playersInGame;
-                    }
-                    if (playersInGame < 2) {
-                        parallelTransition.stop();
+            // Receive data from server.
+            try {
+                if (dataInputStream.available() > 0) {
+                    LineSegment[] lineSegments = (LineSegment[])communicator.receive();
+                    for (LineSegment lineSegment : lineSegments) {
+                        graphicsContext.strokeLine(lineSegment.getStartX(),
+                                                   lineSegment.getStartY(),
+                                                   lineSegment.getEndX(),
+                                                   lineSegment.getEndY());
                     }
                 }
-            });
+            } catch (IOException exception) {
+                exception.printStackTrace();
+            } catch (ClassNotFoundException exception) {
+                exception.printStackTrace();
+            }
 
-            // Add each Player animation frame.
-            timelines[player.getId()].getKeyFrames().add(keyFrame);
-        }
+            // Send current direction to server.
+            try {
+                communicator.send(direction);
+            } catch (IOException exception) {
+                exception.printStackTrace();
+            }
 
-        // Add all timelines to the animation and play it infinitely.
-        parallelTransition.getChildren().addAll(timelines);
-        parallelTransition.setCycleCount(Timeline.INDEFINITE);
+            //long endTime = System.nanoTime() - startTime;
+            //System.out.println("One frame takes " + endTime + "ns");
+        });
 
-        return root;
+        timeline.getKeyFrames().add(keyFrame);
+        timeline.setCycleCount(Timeline.INDEFINITE);
+
+        return pane;
     }
 
     @Override
     public void start(Stage primaryStage) throws Exception {
+        // Connect with server.
+        Socket socket = new Socket(hostIpAddress, configurator.getPort());
+
+        // Initialize Input/Output streams.
+        dataInputStream = new DataInputStream(socket.getInputStream());
+        dataOutputStream = new DataOutputStream(socket.getOutputStream());
+
+        // Initialize communicator.
+        communicator = new Communicator(dataInputStream, dataOutputStream);
+
+        // Sleep for 1 second.
+        TimeUnit.MILLISECONDS.sleep(50);
+
+        // Get user movement keys and run client.
+        String[] movementKeys = ui.getMovementKeys();
+
+        // Create user controller.
+        Controller controller = new Controller(movementKeys[0], movementKeys[1]);
+
+        // Wait to receive client id from server.
+        id = (int)communicator.receive();
+
+        // Wait to receive number of players from server.
+        noOfPlayers = (int)communicator.receive();
+
         // Create scene.
         final Scene scene = new Scene(createContent());
-        root.setPrefSize(configurator.getSceneWidth(), configurator.getSceneHeight());
+        pane.setPrefSize(configurator.getSceneWidth(), configurator.getSceneHeight());
+        pane.setCache(true);
+        pane.setCacheShape(true);
+        pane.setCacheHint(CacheHint.SPEED);
+
+        canvas.setWidth(configurator.getSceneWidth());
+        canvas.setHeight(configurator.getSceneHeight());
 
         // React on key press/release.
         scene.setOnKeyPressed(event -> {
-            for (int i = 0; i < noOfPlayers; ++i) {
-                players[i].setDirection(controllers[i].getNewDirection(event.getCode(), true));
-            }
+            direction = controller.getNewDirection(event.getCode().toString(), true);
         });
 
         scene.setOnKeyReleased(event -> {
-            for (int i = 0; i < noOfPlayers; ++i) {
-                players[i].setDirection(controllers[i].getNewDirection(event.getCode(), false));
-            }
+            direction = controller.getNewDirection(event.getCode().toString(), false);
         });
 
         // Set title and show scene.
@@ -125,55 +149,27 @@ public class Main extends Application {
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        // Run animation.
-        parallelTransition.play();
+        // Start animation.
+        timeline.play();
     }
 
-    public static void main(String[] args) {
-        // Set number of players.
-        noOfPlayers = 2;
-
-        // Initialize Configurator.
+    public static void main(String[] args) throws IOException {
+        // Setup default configuration.
         configurator = new Configurator();
 
-        // Initalize CollisionDetector.
-        collisionDetector = new CollisionDetector(configurator.getPlayerSize());
+        // Show menu.
+        ui = new UI();
+        ui.showModeMenu();
 
-        // Initialize Players, Timelines and Controllers.
-        Color[] colors = new Color[noOfPlayers];
-        colors[0] = Color.BLUE;
-        colors[1] = Color.RED;
-        /*colors[2] = Color.BLACK;
-        colors[3] = Color.GREEN;
-        colors[4] = Color.PINK;
-        colors[5] = Color.GRAY;
-        colors[6] = Color.ORANGE;
-        colors[7] = Color.PURPLE;*/
-
-        players = new Player[noOfPlayers];
-        int playerSize = configurator.getPlayerSize();
-        for (int i = 0; i < noOfPlayers; ++i) {
-            double x = playerSize + (Math.random() * (configurator.getSceneWidth() - 2 * playerSize));
-            double y = playerSize + (Math.random() * (configurator.getSceneHeight() - 2 * playerSize));
-            players[i] = new Player(i, x, y, Math.random(), playerSize, configurator.getPlayerSpeed(), colors[i]);
+        if (ui.isServer()) {
+            // Run server.
+            new ServerThread(configurator.getPort(), ui.getNumberOfPlayers(), configurator).start();
+        } else {
+            // Get IP address of the server.
+            hostIpAddress = ui.getHostIpAddress();
         }
 
-        timelines = new Timeline[noOfPlayers];
-        for (int i = 0; i < timelines.length; ++i) {
-            timelines[i] = new Timeline();
-        }
-
-        controllers = new Controller[noOfPlayers];
-        controllers[0] = new Controller(KeyCode.LEFT, KeyCode.DOWN);
-        controllers[1] = new Controller(KeyCode.A, KeyCode.S);
-        /*controllers[2] = new Controller(KeyCode.O, KeyCode.P);
-        controllers[3] = new Controller(KeyCode.R, KeyCode.T);
-        controllers[4] = new Controller(KeyCode.Y, KeyCode.U);
-        controllers[5] = new Controller(KeyCode.C, KeyCode.V);
-        controllers[6] = new Controller(KeyCode.N, KeyCode.M);
-        controllers[7] = new Controller(KeyCode.K, KeyCode.L);*/
-
-        // Run the game.
+        // Run application.
         launch(args);
     }
 }

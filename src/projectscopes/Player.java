@@ -24,10 +24,13 @@ public class Player {
     private double y = 0.0;
 
     // Direction.
-    private double direction = 0.0;
+    private int direction = 0;
     private double factor = 0.0;
     private double vectorX = 0.0;
     private double vectorY = 0.0;
+
+    // indicates if player should make a move.
+    private boolean update = false;
 
     /**
      * Creates Player instance.
@@ -65,22 +68,30 @@ public class Player {
 
     public final int getSize() { return size; }
 
-    public final Color getColor() {
+    public Color getColor() {
         return color;
     }
 
-    public void setDirection(double direction) {
+    public void setDirection(int direction) {
         this.direction = direction;
     }
 
-    public final double getDirection() { return factor; }
+    public double getDirection() { return factor; }
+
+    public void setUpdate(boolean update) {
+        this.update = update;
+    }
+
+    public boolean getUpdate() {
+        return update;
+    }
 
     /**
      * Calculates new position.
      */
     public void move() {
-        if (direction <= -0.000001 || direction >= -0.000001) {
-            factor += direction;
+        if (direction != 0) {
+            factor += direction * 0.025;
             vectorX = Math.sin(factor);
             vectorY = Math.cos(factor);
         }
