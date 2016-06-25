@@ -1,10 +1,9 @@
 package projectscopes;
 
-import javafx.scene.paint.Color;
-
 /**
- *
  * @author Tomasz Najbar
+ *
+ * Contains information about player.
  */
 public class Player {
     // Id.
@@ -15,9 +14,6 @@ public class Player {
 
     // Speed.
     private double speed = 0.0;
-
-    // Color.
-    private Color color;
 
     // Position.
     private double x = 0.0;
@@ -33,7 +29,7 @@ public class Player {
     private boolean update = false;
 
     /**
-     * Creates Player instance.
+     * Creates player instance.
      *
      * @param id Player identifier.
      * @param x Initial position on X axis.
@@ -42,7 +38,7 @@ public class Player {
      * @param size Initial size.
      * @param speed Initial speed.
      */
-    public Player(final int id, final double x, final double y, final double factor, final int size, final double speed, final Color color) {
+    public Player(final int id, final double x, final double y, final double factor, final int size, final double speed) {
         this.id = id;
 
         this.x = x;
@@ -55,43 +51,85 @@ public class Player {
 
         this.size = size;
         this.speed = speed;
-        this.color = color;
     }
 
-    public final int getId() { return id; }
+    /**
+     * Gets id of a player.
+     *
+     * @return Player id.
+     */
+    public int getId() { return id; }
 
-    public final double getX() {return x; }
+    /**
+     * Gets player position on X axis.
+     *
+     * @return Player position on X axis in pixel.
+     */
+    public double getX() {return x; }
 
-    public final double getY() {
+    /**
+     * Gets player position on Y axis.
+     *
+     * @return Player position on Y axis in pixels.
+     */
+    public double getY() {
         return y;
     }
 
-    public final int getSize() { return size; }
+    /**
+     * Gets player current size.
+     *
+     * @return Size of a player in pixels.
+     */
+    public int getSize() { return size; }
 
-    public Color getColor() {
-        return color;
-    }
+    /**
+     * Gets player current speed.
+     *
+     * @return Player speed.
+     */
+    public double getSpeed() { return speed; }
 
+    /**
+     * Sets player new movement direction (-1 - left, 0 - straight, 1 - right).
+     *
+     * @param direction Direction in game units.
+     */
     public void setDirection(int direction) {
         this.direction = direction;
     }
 
+    /**
+     * Gets player current direction.
+     *
+     * @return Direction in game units.
+     */
     public double getDirection() { return factor; }
 
+    /**
+     * Indicates if player should update its position (true - ready to move, false - do not move).
+     *
+     * @param update Boolean value that indicates if player should make a move.
+     */
     public void setUpdate(boolean update) {
         this.update = update;
     }
 
+    /**
+     * Gets info about player readiness to move.
+     *
+     * @return True if player should update its position, False otherwise.
+     */
     public boolean getUpdate() {
         return update;
     }
 
     /**
-     * Calculates new position.
+     * Calculates player new position.
      */
     public void move() {
         if (direction != 0) {
-            factor += direction * 0.025;
+            factor += direction * 0.035;
             vectorX = Math.sin(factor);
             vectorY = Math.cos(factor);
         }

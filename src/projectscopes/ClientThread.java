@@ -4,29 +4,25 @@ import java.io.*;
 import java.net.Socket;
 
 /**
- *
  * @author Tomasz Najbar
  *
  * Creates a thread for client.
  */
-public class ClientThread extends Thread {
+public class ClientThread implements Runnable {
+    // Id.
+    private int id = -1;
+
     // Receive socket.
     private Socket socket = null;
-
-    // Reader.
-    private DataInputStream dataInputStream = null;
-
-    // Communicator.
-    private Communicator communicator = null;
 
     // Players.
     private Player[] players = null;
 
-    // Id.
-    private int id = -1;
+    // Reader.
+    private DataInputStream dataInputStream = null;
 
     /**
-     * Initializes client with socket and players position.
+     * Initializes client with id, socket and players position.
      *
      * @param id Client id.
      * @param socket Receive socket.
@@ -43,7 +39,6 @@ public class ClientThread extends Thread {
         // Initialize reader and communicator.
         try {
             dataInputStream = new DataInputStream(socket.getInputStream());
-            communicator = new Communicator(dataInputStream);
         } catch (IOException exception) {
             exception.printStackTrace();
         }
@@ -51,12 +46,15 @@ public class ClientThread extends Thread {
         // Receive data from player.
         while (true) try {
             if (dataInputStream.available() > 0) {
-                players[id].setDirection((int) communicator.receive());
+                //long startTime = System.nanoTime();
+
+                players[id].setDirection(dataInputStream.readInt());
                 players[id].setUpdate(true);
+
+                //long endTime = System.nanoTime() - startTime;
+                //System.out.println("CLIENT RECEIVE: " + endTime + " ns");
             }
         } catch (IOException exception) {
-            exception.printStackTrace();
-        } catch (ClassNotFoundException exception) {
             exception.printStackTrace();
         }
     }

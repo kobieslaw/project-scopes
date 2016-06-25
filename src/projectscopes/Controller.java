@@ -1,10 +1,9 @@
 package projectscopes;
 
-import javafx.scene.input.KeyCode;
-
 /**
- *
  * @author Tomasz Najbar
+ *
+ * Controlls player actions.
  */
 public class Controller {
     // Player turning keys.

@@ -8,15 +8,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- *
  * @author Tomasz Najbar
+ *
+ * Checks for collision on scene.
  */
 public class CollisionDetector {
-    // Initial Player size. Used to calculat number of points to be verified in case of collision.
+    // Initial Player size. Used to calculate number of points to be verified in case of collision.
     private int initialPlayerSize = 0;
-
-    // Defines the distance between Player and colliding object.
-    private int colliderFactor = 0;
 
     // Points to be verified in case of collision.
     private List<int[]> points;
@@ -62,7 +60,6 @@ public class CollisionDetector {
      */
     public CollisionDetector(int initialPlayerSize) {
         this.initialPlayerSize = initialPlayerSize;
-        colliderFactor = 2;
     }
 
     /**
@@ -73,6 +70,9 @@ public class CollisionDetector {
      * @return True in case of collision, otherwise False.
      */
     public boolean collision(Player player, Pane pane) {
+        // Defines the distance between Player and colliding object.
+        int colliderFactor = (int)player.getSpeed() + 1;
+
         // Create list of points to be verified.
         double vectorX = Math.sin(player.getDirection());
         double vectorY = Math.cos(player.getDirection());

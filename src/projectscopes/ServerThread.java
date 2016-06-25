@@ -1,10 +1,8 @@
 package projectscopes;
 
-import javafx.scene.Scene;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Line;
 
+import javafx.scene.shape.Line;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -15,73 +13,57 @@ import java.net.Socket;
  *
  * Creates thread for Server.
  */
-public class ServerThread extends Thread {
-    // Port on which server will listen for client communication.
-    int portNumber = -1;
-
+public class ServerThread implements Runnable {
     // Number of players that will participate in the game
-    int noOfPlayers = -1;
+    private int noOfPlayers = -1;
 
     // Listener.
-    ServerSocket serverSocket = null;
+    private ServerSocket serverSocket = null;
 
     // Output stream.
-    DataOutputStream[] dataOutputStreams = null;
+    private DataOutputStream[] dataOutputStreams = null;
 
     // Players.
     private Player[] players = null;
 
     // Each Player current coordinates.
-    private LineSegment[] lineSegments;
+    private LineSegment[] lineSegments = null;
 
-    // Current configuation.
+    // Current configuration.
     private Configurator configurator = null;
 
-    // Indicates when new data should be send to players.
-    private boolean upadate = false;
-
-    // Scene for collision detection.
-    private final Pane pane = new Pane();
-
-    // Collision detector.
-    private CollisionDetector collisionDetector = null;
-
     /**
-     * Initializes server with port number and number of players.
+     * Initializes server.
      *
-     * @param portNumber Port on which server will listen for client communication.
-     * @param noOfPlayers Number of players that will participate in the game.
+     * @param configurator Game configuration.
      */
-    public ServerThread(int portNumber, int noOfPlayers, Configurator configurator) {
-        this.portNumber = portNumber;
-        this.noOfPlayers = noOfPlayers;
+    public ServerThread(Configurator configurator) {
+        this.configurator = configurator;
+
+        noOfPlayers = configurator.getNoOfPlayers();
 
         dataOutputStreams = new DataOutputStream[noOfPlayers];
 
         players = new Player[noOfPlayers];
-        // Initialize start positions.
-        this.configurator = configurator;
-        int playerSize = configurator.getPlayerSize();
+        // Calculate players start positions.
+        int playerSize = configurator.getInitialPlayersSize();
         for (int i = 0; i < noOfPlayers; ++i) {
             double x = playerSize + (Math.random() * (configurator.getSceneWidth() - 2 * playerSize));
             double y = playerSize + (Math.random() * (configurator.getSceneHeight() - 2 * playerSize));
-            players[i] = new Player(i, x, y, Math.random(), playerSize, configurator.getPlayerSpeed(), Color.BLACK);
+            players[i] = new Player(i, x, y, Math.random(), playerSize, configurator.getInitialPlayersSpeed());
         }
 
         lineSegments = new LineSegment[noOfPlayers];
-
-        collisionDetector = new CollisionDetector(configurator.getPlayerSize());
-
-        // Set pane size.
-        pane.setLayoutX(configurator.getSceneWidth());
-        pane.setLayoutY(configurator.getSceneHeight());
+        for (int i = 0; i < lineSegments.length; ++i) {
+            lineSegments[i] = new LineSegment(0.0, 0.0, 0.0, 0.0);
+        }
     }
 
     @Override
     public void run() {
         // Initialize server socket.
         try {
-            serverSocket = new ServerSocket(portNumber);
+            serverSocket = new ServerSocket(configurator.getConnectionPortNumber());
         } catch (IOException exception) {
             exception.printStackTrace();
         }
@@ -95,7 +77,7 @@ public class ServerThread extends Thread {
             dataOutputStreams[connectedPlayers] = new DataOutputStream(sockets[connectedPlayers].getOutputStream());
 
             // Start new client thread.
-            new ClientThread(connectedPlayers, sockets[connectedPlayers], players).start();
+            new Thread(new ClientThread(connectedPlayers, sockets[connectedPlayers], players)).start();
 
             ++connectedPlayers;
 
@@ -106,26 +88,29 @@ public class ServerThread extends Thread {
             exception.printStackTrace();
         }
 
-        System.out.println("\nAll players successfully connected.\n");
+        System.out.println("\nAll players successfully connected.");
 
-        // Create and initialize communicators.
-        Communicator[] communicators = new Communicator[noOfPlayers];
-        for (int i = 0; i < communicators.length; ++i) {
-            communicators[i] = new Communicator(dataOutputStreams[i]);
-        }
-
-        // Send client id and number of players to each client.
-        int id = 0;
-        for (Communicator communicator : communicators) try {
-            communicator.send(id++);
-            communicator.send(noOfPlayers);
+        // Send client id, number of players and configuration to each client.
+        for (int i = 0; i < noOfPlayers; ++i) try {
+            dataOutputStreams[i].writeInt(noOfPlayers);
+            dataOutputStreams[i].write(Serializer.convertToBytes(configurator));
         } catch (IOException exception) {
             exception.printStackTrace();
         }
 
+        // Scene for collision detection.
+        final Pane pane = new Pane();
+        pane.setLayoutX(configurator.getSceneWidth());
+        pane.setLayoutY(configurator.getSceneHeight());
+
+        // Collision detector.
+        final CollisionDetector collisionDetector = new CollisionDetector(configurator.getInitialPlayersSize());
+
         // Send current players location to clients.
         while (true) {
             // Check if all players have updated positions.
+            //long starTime = System.nanoTime();
+
             boolean send = false;
             while (!send) {
                 send = true;
@@ -137,9 +122,9 @@ public class ServerThread extends Thread {
             }
 
             // Stop the game if only one player left.
-            if (noOfPlayers < 2) {
+            /*if (noOfPlayers < 2) {
                 break;
-            }
+            }*/
 
             // Calculate each player new position.
             for (Player player : players) {
@@ -150,33 +135,38 @@ public class ServerThread extends Thread {
 
                 player.move();
 
-                double vectorX = Math.sin(player.getDirection());
-                double vectorY = Math.cos(player.getDirection());
-                lineSegments[player.getId()] = new LineSegment(player.getX() + vectorY * player.getSize(),
-                                                               player.getY() - vectorX * player.getSize(),
-                                                               player.getX() - vectorY * player.getSize(),
-                                                               player.getY() + vectorX * player.getSize());
+                double vectorX = Math.sin(player.getDirection()) * player.getSize();
+                double vectorY = Math.cos(player.getDirection()) * player.getSize();
+
+                lineSegments[player.getId()].setStartX(player.getX() + vectorY);
+                lineSegments[player.getId()].setStartY(player.getY() - vectorX);
+                lineSegments[player.getId()].setEndX(player.getX() - vectorY);
+                lineSegments[player.getId()].setEndY(player.getY() + vectorX);
 
                 player.setUpdate(false);
 
+                // Check for collisions.
                 if (collisionDetector.collision(player, pane)) {
                     players[player.getId()] = null;
                     --noOfPlayers;
                     continue;
                 }
 
-                pane.getChildren().add(new Line(player.getX() + vectorY * player.getSize(),
-                        player.getY() - vectorX * player.getSize(),
-                        player.getX() - vectorY * player.getSize(),
-                        player.getY() + vectorX * player.getSize()));
+                pane.getChildren().add(new Line(player.getX() + vectorY,
+                                                player.getY() - vectorX,
+                                                player.getX() - vectorY,
+                                                player.getY() + vectorX));
             }
 
             // Send data to clients.
-            for (Communicator communicator : communicators) try {
-                communicator.send(lineSegments);
-            } catch (IOException exception) {
-                exception.printStackTrace();
+            for (DataOutputStream dataOutputStream : dataOutputStreams) try {
+                dataOutputStream.write(Serializer.convertToBytes(lineSegments));
+            } catch (IOException e) {
+                e.printStackTrace();
             }
+
+            //long endTime = System.nanoTime() - starTime;
+            //System.out.println("SERVER SEND: " + endTime + " ns");
         }
     }
 }
