@@ -6,6 +6,8 @@ package projectscopes;
  * Contains information about player.
  */
 public class Player {
+	// Test.
+	
     // Id.
     private int id = 0;
 
