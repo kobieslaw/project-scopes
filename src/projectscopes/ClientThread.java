@@ -3,6 +3,8 @@ package projectscopes;
 import java.io.*;
 import java.net.Socket;
 
+// Test.
+
 /**
  * @author Tomasz Najbar
  *
